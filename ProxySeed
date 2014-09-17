@@ -1,0 +1,61 @@
+#!/bin/sh
+
+### Usage: ProxySeed [-h] [-t TYPE] [-d DESTINATION]
+###
+### Creates a new long-lived proxy of TYPE kind, currently only 'pilot' is supported, and
+### installs it into DESTINATION which must be a directory 'scp' can copy to.
+### DESTINATION defaults to '/home/gfrontend/.globus', TYPE to 'DevVM'.
+###
+### Examples:
+###   ProxySeed
+###   ProxySeed -t pilot -d /home/gfrontend/.globus
+###   ProxySeed -t pilot -d gfrontend@$(hostname):/home/gfrontend/.globus
+
+usage()
+{
+  perl -ne '/^### Usage:/ && do { s/^### ?//; print }' < $0
+  exit 1
+}
+
+try()
+{
+  for try in 1 2 3; do
+    (set -x; eval ${1+"$@"})
+    [ $? = 0 ] && return
+  done
+}
+
+type=pilot dest=/home/gfrontend/.globus
+pxparam="-x -c 720 -t 36 -s myproxy.cern.ch"
+shost=$(hostname -s | tr [:upper:]- [:lower:]_)
+fhost=$(hostname -f)
+cert=/home/gfrontend/.globus/pilotcert.pem
+key=/home/gfrontend/.globus/pilotkey.pem
+
+for arg; do
+  case $arg in
+    -t) case $2 in
+          pilot ) type="$2"; shift; shift;;
+          * ) echo "$2: bad proxy type, try 'pilot'" 1>&2; exit 1;;
+        esac ;;
+    -d) dest="$2"; shift; shift ;;
+    -h) perl -ne '/^###/ && do { s/^### ?//; print }' < $0; exit 0;;
+    --) shift; break ;;
+    -*) usage; exit 1 ;;
+  esac
+done
+
+[ $(uname) = Darwin ] && exit 0 # deactivated for now
+
+[ $# = 0 ] || usage
+
+if [ -x /usr/bin/myproxy-init -a -x /usr/bin/voms-proxy-init ]; then :; else
+  source /cvmfs/grid.cern.ch/3.2.11-1/external/etc/profile.d/grid-env.sh
+fi
+export GT_PROXY_MODE=old
+
+case $type in
+  pilot )
+    try myproxy-init $pxparam -C $cert -y $key -R "*/CN=$fhost" -l german_glidein_${shost}_$type ;;
+esac
+try voms-proxy-init -cert $cert -key $key -voms cms:/cms/dcms/Role=pilot -valid 36:00 -out $dest/seed-$type.cert

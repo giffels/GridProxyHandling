@@ -26,7 +26,7 @@ try()
 }
 
 type=pilot dest=/home/gfrontend/.globus
-pxparam="-x -c 720 -t 36 -s myproxy.cern.ch"
+pxparam="-x -c 720 -t 192 -s myproxy.cern.ch"
 shost=$(hostname -s | tr [:upper:]- [:lower:]_)
 fhost=$(hostname -f)
 cert=/home/gfrontend/.globus/pilotcert.pem
@@ -58,4 +58,4 @@ case $type in
   pilot )
     try myproxy-init $pxparam -C $cert -y $key -R "*/CN=$fhost" -l german_glidein_${shost}_$type ;;
 esac
-try voms-proxy-init -cert $cert -key $key -voms cms:/cms/dcms/Role=pilot -valid 36:00 -out $dest/seed-$type.cert
+try voms-proxy-init -cert $cert -key $key -voms cms:/cms/dcms/Role=pilot -valid 192:00 -out $dest/seed-$type.cert
